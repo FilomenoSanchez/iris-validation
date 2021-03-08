@@ -78,6 +78,7 @@ def load_pdb_report_data(force_redownload=False):
                 pdb_report_values[pdb_id][heading] = value
     print('Done.')
     return pdb_report_values
+load_pdb_report_data(True)
 
 
 def decompress_pdb_redo_dir(pdb_id, suffixes=None):
