@@ -56,6 +56,12 @@ COVARIANCE_DATA_ROW="""<tr>
     <td><button id={}_{} type="button" onclick="showCovFixTable(this.id)"; class="btn btn-default">Show</button></td>
   </tr>"""
 
+
+COVARIANCE_DATA_NO_OUTLIER_ROW="""<tr>
+    <td colspan="5">No outliers found.</td>
+  </tr>"""
+
+
 COVARIANCE_FIX_TABLE = """ <table id="covariance_fix_table_{}_{}" style="display:none">
   <tr>
     <th>Current Residue</th>
@@ -332,6 +338,9 @@ def _covariance_data_table(model_id, model):
             COVARIANCE_FIX_TABLES += COVARIANCE_FIX_TABLE.format(model_id, idx, cov_fix_rows)
         else:
             COVARIANCE_FIX_TABLES += COVARIANCE_FIX_TABLE.format(model_id, idx, COVARIANCE_NO_FIX_ROW)
+
+    if not cov_data_rows:
+        cov_data_rows = COVARIANCE_DATA_NO_OUTLIER_ROW
 
     return COVARIANCE_DATA_TABLE.format(header, cov_data_rows), COVARIANCE_FIX_TABLES
 
