@@ -11,11 +11,21 @@ def generate_report(latest_model_path,
                     latest_reflections_path=None,
                     previous_reflections_path=None,
                     output_dir='./iris_report_output/',
-                    mode=''):
-    
-    latest_metrics_model = metrics.generate_metrics_model(latest_model_path, latest_reflections_path)
+                    mode='',
+                    sequence_path = None,
+                    distance_prediction_format=None,
+                    distance_prediction_path=None,
+                    map_align_exe='map_align'):
+
+    latest_metrics_model = metrics.generate_metrics_model(latest_model_path, latest_reflections_path,
+                                                          f_seq=sequence_path, f_distpred=distance_prediction_path,
+                                                          distpred_format=distance_prediction_format,
+                                                          map_align_exe=map_align_exe)
     previous_metrics_model = None
     if previous_model_path is not None:
-        previous_metrics_model = metrics.generate_metrics_model(previous_model_path, previous_reflections_path)
+        previous_metrics_model = metrics.generate_metrics_model(previous_model_path, previous_reflections_path,
+                                                                f_seq=sequence_path, f_distpred=distance_prediction_path,
+                                                                distpred_format=distance_prediction_format,
+                                                                map_align_exe=map_align_exe)
 
     interface.build_report(latest_metrics_model, previous_metrics_model, output_dir, mode)

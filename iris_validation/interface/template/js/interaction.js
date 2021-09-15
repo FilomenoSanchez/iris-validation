@@ -88,6 +88,8 @@ function toggleModel() {
   //setRadarChart(selectedModel, selectedChain, selectedResidue);
   setResidueChart(selectedModel, selectedChain, selectedResidue);
   setResidueChartRanges();
+  // Only show current model covariance data
+  setCovData(selectedModel, selectedChain)
 };
 
 
@@ -106,6 +108,7 @@ function setChain(chainID) {
   setResidueChart(selectedModel, selectedChain, selectedResidue);
   setSelector(selectedChain, selectedResidue);
   setIrisChart(selectedChain);
+  setCovData(selectedModel, selectedChain)
 };
 
 
@@ -503,6 +506,40 @@ function getResidueChartRanges() {
   };
 };
 
+function showCovFixTable(button_id) {
+  // Hide all table
+    var tablesToHide = document.querySelectorAll('[id^="covariance_fix_table_"]');
+    for(var i = 0; i < tablesToHide.length; i++){
+        if (tablesToHide[i].id === 'covariance_fix_table_'+button_id)             tablesToHide[i].style.display = "";
+        else tablesToHide[i].style.display = "none";
+    }
+};
+
+
+function showCovDataTable(model_id) {
+  // Hide all table
+    var tablesToHide = document.querySelectorAll('[id^="covariance_data_table_"]');
+    for(var i = 0; i < tablesToHide.length; i++){
+        if (tablesToHide[i].id === 'covariance_data_table_'+model_id)             tablesToHide[i].style.display = "";
+        else tablesToHide[i].style.display = "none";
+    }
+};
+
+function setCovData(model_id, chain_id) {
+  var noCovDataAvail = document.getElementById('no_cov_data_avail');
+  showCovFixTable('XXXXXX');
+  // If there is covariance data and is the first chain, show table
+  if (chain_id === 0){
+    showCovDataTable(model_id);
+    noCovDataAvail.style.display = "none";
+  }
+  // Otherwise hide everything
+  else {
+    showCovDataTable('XXXXXX');
+    noCovDataAvail.style.display = "";
+  }
+
+};
 
 function setResidueChartRanges() {
   // Calculate Ys

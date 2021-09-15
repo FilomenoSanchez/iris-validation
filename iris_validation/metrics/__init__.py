@@ -22,9 +22,17 @@ from iris_validation.metrics.rotamer import get_cv_score
 from iris_validation.metrics.percentiles import get_percentile
 from iris_validation.metrics.reflections import ReflectionsHandler
 
+import os
+import shutil
+import tempfile
+import conkit.applications
+import conkit.command_line
+from conkit.command_line.conkit_validate import parse_map_align_stdout
+import conkit.io
+import conkit.plot
 
-#RAMA_THRESHOLDS = (0.01, 0.0005) # Clipper default
-RAMA_THRESHOLDS = (0.02, 0.002) # Concordant with Coot
+# RAMA_THRESHOLDS = (0.01, 0.0005) # Clipper default
+RAMA_THRESHOLDS = (0.02, 0.002)  # Concordant with Coot
 
 
 class MetricsModel(object):
@@ -33,6 +41,7 @@ class MetricsModel(object):
         self.minimol_model = mmol_model
         self.reflections_handler = reflections_handler
         self.multithreaded = multithreaded
+        self.contains_covariance_data = False
 
         minimol_chains = list(mmol_model.model())
         self.chain_count = len(minimol_chains)
@@ -91,6 +100,59 @@ class MetricsModel(object):
                 model_li += chain_li
         return all_bfs, aa_bfs, mc_bfs, sc_bfs, non_aa_bfs, water_bfs, ligand_bfs, ion_bfs
 
+    def get_covariance_metrics(self, f_seq, f_distpred, distpred_format, f_model,
+                               skip_alignment=False, map_align_exe='map_align'):
+        if not self.chains:
+            raise ValueError('Need to setup chains first')
+
+        sequence = conkit.io.read(f_seq, 'fasta').top
+        prediction = conkit.io.read(f_distpred, distpred_format).top
+        model = conkit.io.read(f_model, 'pdb' if '.pdb' in f_model else 'mmcif').top
+        figure = conkit.plot.ModelValidationFigure(model, prediction, sequence, use_weights=True)
+        if not any(figure.outliers) or skip_alignment:
+            self.contains_covariance_data = True
+            self.chains[0].set_covariance_data(figure.rmsd_profile, figure.fn_profile, figure.outliers, None)
+            return
+
+        tmpdir = tempfile.mkdtemp()
+
+        contact_map_a = os.path.join(tmpdir, 'contact_map_a.mapalign')
+        contact_map_b = os.path.join(tmpdir, 'contact_map_b.mapalign')
+        self._write_mapalign_cmap(contact_map_a, prediction)
+        self._write_mapalign_cmap(contact_map_b, model)
+
+        map_align_cline = conkit.applications.MapAlignCommandline(
+            cmd=map_align_exe,
+            contact_map_a=contact_map_a,
+            contact_map_b=contact_map_b
+        )
+        stdout, stderr = map_align_cline()
+        alignment = parse_map_align_stdout(stdout)
+
+        shutil.rmtree(tmpdir)
+
+        covariance_fixes = {}
+        for idx, outlier in enumerate(figure.outliers, 1):
+            start_outlier = outlier - 20 if outlier > 20 else 0
+            stop_outlier = outlier + 20 if outlier + 20 < len(sequence) else len(sequence)
+            fix = []
+            for resnum in range(start_outlier, stop_outlier + 1):
+                if resnum in alignment.keys() and alignment[resnum] != resnum:
+                    fix.append(('{} ({})'.format(sequence.seq[resnum - 1], resnum),
+                                '{} ({})'.format(sequence.seq[alignment[resnum] - 1], alignment[resnum])))
+            covariance_fixes[idx] = fix
+
+        self.contains_covariance_data = True
+        self.chains[0].set_covariance_data(figure.rmsd_profile, figure.fn_profile, figure.outliers, covariance_fixes)
+
+    @staticmethod
+    def _write_mapalign_cmap(fname, cmap):
+        with open(fname, 'w') as fhandle:
+            fhandle.write("LEN {}\n".format(cmap.highest_residue_number))
+            line_template = "CON {} {} {:.6f}\n"
+            for contact in cmap:
+                fhandle.write(line_template.format(contact.res1_seq, contact.res2_seq, contact.raw_score))
+
 
 class MetricsChain(object):
     def __init__(self, mmol_chain, parent=None):
@@ -100,6 +162,11 @@ class MetricsChain(object):
         self.residues = [ ]
         self.length = len(mmol_chain)
         self.chain_id = str(mmol_chain.id().trim())
+        self.wrmsd_profile = None
+        self.fn_profile = None
+        self.covariance_outliers = None
+        self.covariance_fixes = None
+
         for i, mmres in enumerate(mmol_chain):
             previous = mmol_chain[i-1] if i>0 else None
             next = mmol_chain[i+1] if i<len(mmol_chain)-1 else None
@@ -115,6 +182,15 @@ class MetricsChain(object):
 
     def __iter__(self):
         return self
+
+    def set_covariance_data(self, wrmsd_profile, fn_profile, covariance_outliers, covariance_fixes):
+        self.wrmsd_profile = wrmsd_profile
+        self.fn_profile = fn_profile
+        self.covariance_outliers = covariance_outliers
+        self.covariance_fixes = covariance_fixes
+        for residue in self.residues:
+            residue.wrmsd = wrmsd_profile[residue.index_in_chain]
+            residue.fn_count = fn_profile[residue.index_in_chain]
 
     # Python 3: def __next__(self):
     def next(self):
@@ -164,6 +240,8 @@ class MetricsResidue(object):
         self.next = next
         self.atoms = [ atom for atom in mmol_residue ]
         self.sequence_number = mmol_residue.seqnum()
+        self.wrmsd = None
+        self.fn_count = None
         self.code = mmol_residue.type().trim()
         self.code_type = utils.code_type(mmol_residue)
         self.backbone_atoms = utils.get_backbone_atoms(mmol_residue)
@@ -203,7 +281,9 @@ def _mmc_to_mmc(minimol_chain):
     return MetricsChain(minimol_chain)
 
 
-def generate_metrics_model(f_model=None, f_reflections=None, minimol=None, xmap=None, multithreaded=True):
+def generate_metrics_model(f_model=None, f_reflections=None, minimol=None, xmap=None, multithreaded=True,
+                           f_seq=None, f_distpred=None, distpred_format=None, skip_cmap_alignment=False,
+                           map_align_exe='map_align'):
     if f_model is None:
         if minimol is None:
             print('ERROR: either a model file path or a MiniMol object must be passed as an argument')
@@ -228,4 +308,9 @@ def generate_metrics_model(f_model=None, f_reflections=None, minimol=None, xmap=
         reflections_handler = ReflectionsHandler(f_reflections, minimol=minimol)
 
     metrics_model = MetricsModel(minimol, reflections_handler, multithreaded)
+
+    if f_distpred is not None and distpred_format is not None and f_seq is not None:
+        metrics_model.get_covariance_metrics(f_seq, f_distpred, distpred_format, f_model,
+                                             skip_cmap_alignment, map_align_exe)
+
     return metrics_model

@@ -11,10 +11,18 @@ from iris_validation.interface.charts import concentric, radar, grid
 from iris_validation.utils import code_three_to_one, needleman_wunsch
 from iris_validation import METRIC_NAMES, METRIC_POLARITIES, METRIC_SHORTNAMES, METRIC_DISPLAY_TYPES, REPORT_METRIC_IDS, REPORT_RESIDUE_VIEW
 
-METRIC_NAMES = [ METRIC_NAMES[i] for i in REPORT_METRIC_IDS ]
-METRIC_POLARITIES = [ METRIC_POLARITIES[i] for i in REPORT_METRIC_IDS ]
-METRIC_SHORTNAMES = [ METRIC_SHORTNAMES[i] for i in REPORT_METRIC_IDS ]
-METRIC_DISPLAY_TYPES = [ METRIC_DISPLAY_TYPES[i] for i in REPORT_METRIC_IDS ]
+
+def set_globals(metrics_ids):
+    global METRIC_NAMES
+    METRIC_NAMES = [METRIC_NAMES[i] for i in metrics_ids]
+    global METRIC_POLARITIES
+    METRIC_POLARITIES = [METRIC_POLARITIES[i] for i in metrics_ids]
+    global METRIC_SHORTNAMES
+    METRIC_SHORTNAMES = [METRIC_SHORTNAMES[i] for i in metrics_ids]
+    global METRIC_DISPLAY_TYPES
+    METRIC_DISPLAY_TYPES = [METRIC_DISPLAY_TYPES[i] for i in metrics_ids]
+    global REPORT_METRIC_IDS
+    REPORT_METRIC_IDS = metrics_ids
 
 with open(path.join(path.dirname(path.realpath(__file__)), 'template', 'report.html'), 'r') as infile:
     HTML_TEMPLATE = infile.read()
@@ -29,8 +37,44 @@ with open(path.join(path.dirname(path.realpath(__file__)), 'template', 'css', 'm
 with open(path.join(path.dirname(path.realpath(__file__)), 'template', 'css', 'compat.css'), 'r') as infile:
     CSS_COMPAT = infile.read()
 
+COVARIANCE_DATA_TABLE = """ <table {}>
+  <tr>
+    <th>Outlier no.</th>
+    <th>Residue no.</th>
+    <th>wRMSD</th>
+    <th>FN Count</th>
+    <th>Show fix</th>
+  </tr>
+  {}
+  </table> """
 
-def _align_chains(model_latest, model_previous):
+COVARIANCE_DATA_ROW="""<tr>
+    <td>{}</td>
+    <td>{}</td>
+    <td>{}</td>
+    <td>{}</td>
+    <td><button id={}_{} type="button" onclick="showCovFixTable(this.id)"; class="btn btn-default">Show</button></td>
+  </tr>"""
+
+COVARIANCE_FIX_TABLE = """ <table id="covariance_fix_table_{}_{}" style="display:none">
+  <tr>
+    <th>Current Residue</th>
+    <th>New Residue</th>
+  </tr>
+  {}
+  </table> """
+
+COVARIANCE_FIX_ROW ="""<tr>
+    <td>{}</td>
+    <td>{}</td>
+  </tr>"""
+
+COVARIANCE_NO_FIX_ROW = """<tr>
+    <td colspan="2">No fix found</td>
+  </tr>"""
+
+
+def _align_chains(model_latest, model_previous=None):
     if model_previous is None:
         return
     latest_chain_ids = [ chain.chain_id for chain in model_latest ]
@@ -53,7 +97,7 @@ def _clear_non_aa_residues(*models):
                 chain.remove_residue(residue)
 
 
-def _generate_chain_sets(model_latest, model_previous):
+def _generate_chain_sets(model_latest, model_previous=None):
     chain_sets = { }
     for chain in model_latest:
         chain_sets[chain.chain_id] = [ chain ]
@@ -135,7 +179,7 @@ def _chart_data_from_models(model_latest, model_previous):
                     continue
                 residue_id += 1
                 residue = chain_set[model_id].residues[residue_id]
-                metrics_continuous = [ residue.ramachandran_score, residue.rotamer_score, residue.avg_b_factor, residue.max_b_factor, residue.std_b_factor, residue.fit_score, residue.mainchain_fit_score, residue.sidechain_fit_score ]
+                metrics_continuous = [ residue.ramachandran_score, residue.rotamer_score, residue.avg_b_factor, residue.max_b_factor, residue.std_b_factor, residue.fit_score, residue.mainchain_fit_score, residue.sidechain_fit_score, residue.wrmsd, residue.fn_count ]
                 metrics_continuous = [ metrics_continuous[i] for i in REPORT_METRIC_IDS ]
                 metrics_discrete = [ None for _ in REPORT_METRIC_IDS ]
                 if 'Ramachandran Score' in METRIC_NAMES:
@@ -270,8 +314,33 @@ def _generate_js_globals(chart_data):
 
     return js_string
 
+def _covariance_data_table(model_id, model):
+    cov_data_rows = ''
+    COVARIANCE_FIX_TABLES = ''
+    if model_id == 1:
+        header = 'id="covariance_data_table_1"'
+    else:
+        header = 'id="covariance_data_table_0" style="display:none"'
+    for idx, outlier in enumerate(model.chains[0].covariance_outliers, 1):
+        cov_data_rows += COVARIANCE_DATA_ROW.format(idx, str(outlier),
+                                                    '{0:.2f}'.format(model.chains[0].wrmsd_profile[outlier]),
+                                                    '{0:.2f}'.format(model.chains[0].fn_profile[outlier]), model_id, idx)
+        if model.chains[0].covariance_fixes and any(model.chains[0].covariance_fixes[idx]):
+            cov_fix_rows = ''
+            for fix in model.chains[0].covariance_fixes[idx]:
+                cov_fix_rows += COVARIANCE_FIX_ROW.format(*fix)
+            COVARIANCE_FIX_TABLES += COVARIANCE_FIX_TABLE.format(model_id, idx, cov_fix_rows)
+        else:
+            COVARIANCE_FIX_TABLES += COVARIANCE_FIX_TABLE.format(model_id, idx, COVARIANCE_NO_FIX_ROW)
+
+    return COVARIANCE_DATA_TABLE.format(header, cov_data_rows), COVARIANCE_FIX_TABLES
 
 def build_report(model_latest, model_previous, output_dir, mode=''):
+    if model_previous.contains_covariance_data or model_latest.contains_covariance_data:
+        set_globals(REPORT_METRIC_IDS + (8, 9))
+    else:
+        set_globals(REPORT_METRIC_IDS)
+
     chart_data = _chart_data_from_models(model_latest, model_previous)
 
     concentric_charts = _concentric_charts_from_data(chart_data)
@@ -292,11 +361,24 @@ def build_report(model_latest, model_previous, output_dir, mode=''):
     ip2_html = ''.join([ '              ' + concentric_chart + '\n' for concentric_chart in concentric_charts ])[:-1] # [:-1] to remove trailing newline
     ip3_html = '              ' + residue_chart
 
+    if model_previous.contains_covariance_data or model_latest.contains_covariance_data:
+        _previous_covariance_data_table = _covariance_data_table(0, model_previous)
+        _latest_covariance_data_table = _covariance_data_table(1, model_latest)
+        ip6_html = '<p id="no_cov_data_avail" style="display:none">No covariance data available.</p>' + _previous_covariance_data_table[0] + _latest_covariance_data_table[0]
+        ip7_html = _previous_covariance_data_table[1] + _latest_covariance_data_table[1]
+    else:
+        ip6_html = '<p id="no_cov_data_avail">No covariance data available.</p>'
+        ip7_html = ''
+
+
+
     report_html = HTML_TEMPLATE_PANEL if mode == 'panel' else HTML_TEMPLATE_PANEL_BC if mode == 'panel-bc' else HTML_TEMPLATE
     report_html = report_html \
                     .replace('INJECTION_POINT_1', ip1_html) \
                     .replace('INJECTION_POINT_2', ip2_html) \
-                    .replace('INJECTION_POINT_3', ip3_html)
+                    .replace('INJECTION_POINT_3', ip3_html) \
+                    .replace('INJECTION_POINT_6', ip6_html) \
+                    .replace('INJECTION_POINT_7', ip7_html)
 
     if path.isdir(output_dir):
         rmtree(output_dir)
