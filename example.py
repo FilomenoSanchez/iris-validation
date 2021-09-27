@@ -14,22 +14,23 @@ from iris_tools.common import get_from_pdb_redo
 
 
 INPUT_DIR = 'example_input'
-OUTPUT_DIR_PREFIX = 'example_report'
+OUTPUT_DIR_PREFIX = 'example_report_{}'
 
 if __name__ == '__main__':
-    #pdb_id = raw_input('Enter PDB code: ')
 
-    latest_model_path = '/home/filo/tmp/latest_pdb.pdb'
-    previous_model_path = '/home/filo/tmp/previous_pdb.pdb'
-    latest_reflections_path = '/home/filo/Documents/Register_errors/5MSZ/5msz_phases.mtz'
-    previous_reflections_path = '/home/filo/Documents/Register_errors/5MSZ/5msz_phases.mtz'
-    sequence_path = '/home/filo/Documents/Register_errors/5MSZ/5msz.fasta'
-    distpred_path = '/home/filo/Documents/Register_errors/5MSZ/TR049386_results/seq.npz'
+    pdb_id = raw_input('Enter PDB code: ')
+
+    latest_model_path = os.path.join(INPUT_DIR, '{}_final.pdb'.format(pdb_id))
+    previous_model_path = os.path.join(INPUT_DIR, '{}_0cyc.pdb'.format(pdb_id))
+    latest_reflections_path = os.path.join(INPUT_DIR, '{}_final.mtz'.format(pdb_id))
+    previous_reflections_path = os.path.join(INPUT_DIR, '{}_0cyc.mtz'.format(pdb_id))
+    sequence_path = os.path.join(INPUT_DIR, '{}.fasta'.format(pdb_id))
+    distpred_path = os.path.join(INPUT_DIR, '{}.npz'.format(pdb_id))
     distpred_format = 'rosettanpz'
-    map_align_exe = '/home/filo/opt/map_align/map_align'
+    map_align_exe = 'map_align'
 
     all_files_present = True
-    for path in (latest_model_path, latest_reflections_path):
+    for path in (latest_model_path, latest_reflections_path, sequence_path, distpred_path):
         if not os.path.exists(path):
             all_files_present = False
             continue
@@ -45,5 +46,5 @@ if __name__ == '__main__':
                     sequence_path=sequence_path,
                     distance_prediction_path=distpred_path,
                     distance_prediction_format=distpred_format,
-                    output_dir='/home/filo/iris_output',
+                    output_dir=OUTPUT_DIR_PREFIX.format(pdb_id),
                     mode='', map_align_exe=map_align_exe)

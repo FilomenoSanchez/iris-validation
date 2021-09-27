@@ -9,7 +9,9 @@ from os import mkdir, path
 from iris_validation.metrics import get_percentile
 from iris_validation.interface.charts import concentric, radar, grid
 from iris_validation.utils import code_three_to_one, needleman_wunsch
-from iris_validation import METRIC_NAMES, METRIC_POLARITIES, METRIC_SHORTNAMES, METRIC_DISPLAY_TYPES, REPORT_METRIC_IDS, REPORT_RESIDUE_VIEW
+from iris_validation import METRIC_NAMES, METRIC_POLARITIES, METRIC_SHORTNAMES, METRIC_DISPLAY_TYPES, \
+    COVARIANCE_DATA_ROW, COVARIANCE_DATA_NO_OUTLIER_ROW, COVARIANCE_FIX_TABLE, COVARIANCE_FIX_ROW, \
+    COVARIANCE_NO_FIX_ROW, REPORT_METRIC_IDS, REPORT_RESIDUE_VIEW, COVARIANCE_DATA_TABLE
 
 
 def set_globals(metrics_ids):
@@ -36,48 +38,6 @@ with open(path.join(path.dirname(path.realpath(__file__)), 'template', 'css', 'm
     CSS_MINIFIED = infile.read()
 with open(path.join(path.dirname(path.realpath(__file__)), 'template', 'css', 'compat.css'), 'r') as infile:
     CSS_COMPAT = infile.read()
-
-COVARIANCE_DATA_TABLE = """ <table {}>
-  <tr>
-    <th>Outlier no.</th>
-    <th>Residue no.</th>
-    <th>wRMSD</th>
-    <th>FN Count</th>
-    <th>Show fix</th>
-  </tr>
-  {}
-  </table> """
-
-COVARIANCE_DATA_ROW="""<tr>
-    <td>{}</td>
-    <td>{}</td>
-    <td>{}</td>
-    <td>{}</td>
-    <td><button id={}_{} type="button" onclick="showCovFixTable(this.id)"; class="btn btn-default">Show</button></td>
-  </tr>"""
-
-
-COVARIANCE_DATA_NO_OUTLIER_ROW="""<tr>
-    <td colspan="5">No outliers found.</td>
-  </tr>"""
-
-
-COVARIANCE_FIX_TABLE = """ <table id="covariance_fix_table_{}_{}" style="display:none">
-  <tr>
-    <th>Current Residue</th>
-    <th>New Residue</th>
-  </tr>
-  {}
-  </table> """
-
-COVARIANCE_FIX_ROW ="""<tr>
-    <td>{}</td>
-    <td>{}</td>
-  </tr>"""
-
-COVARIANCE_NO_FIX_ROW = """<tr>
-    <td colspan="2">No fix found</td>
-  </tr>"""
 
 
 def _align_chains(model_latest, model_previous=None):
