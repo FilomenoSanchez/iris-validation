@@ -378,9 +378,34 @@ function setResidueChart(modelID, chainID, residueID) {
   // Get data for checkboxes
   let box1Color = '';
   let box2Color = '';
+  let box3Color = '';
   let box1Text = '';
   let box2Text = '';
-  let rama = discreteMetrics[modelID][chainID][residueID][0];
+  let box3Text = '';
+
+  if (covDataAvail == true) {
+    ramaID = 1;
+    rotaID = 2;
+    cmo = discreteMetrics[modelID][chainID][residueID][0];
+    cmoSeqRegister = cmoSequenceRegister[modelID][chainID][residueID];
+  } else {
+    ramaID = 0;
+    rotaID = 1;
+    cmo = null;
+    cmoSeqRegister = null;
+  };
+
+  if (cmo === null) {
+    box3Color = COLORS['VL_GREY'];
+    box3Text = 'N/A';
+  } else if (cmo == '0') {
+    box3Color = COLORS['BAR_RED'];
+    box3Text = cmoSeqRegister;
+  } else if (cmo == '2') {
+    box3Color = COLORS['BAR_GREEN'];
+    box3Text = cmoSeqRegister;
+  };
+  let rama = discreteMetrics[modelID][chainID][residueID][ramaID];
   if (rama === null) {
     box1Color = COLORS['VL_GREY'];
     box1Text = 'N/A';
@@ -394,7 +419,7 @@ function setResidueChart(modelID, chainID, residueID) {
     box1Color = COLORS['BAR_GREEN'];
     box1Text = 'Favoured';
   };
-  let rota = discreteMetrics[modelID][chainID][residueID][1];
+  let rota = discreteMetrics[modelID][chainID][residueID][rotaID];
   if (rota === null) {
     box2Color = COLORS['VL_GREY'];
     box2Text = 'N/A';
@@ -411,8 +436,10 @@ function setResidueChart(modelID, chainID, residueID) {
   // Set checkbox color and text
   document.getElementById('checkbox-1').setAttribute('fill', box1Color);
   document.getElementById('checkbox-2').setAttribute('fill', box2Color);
+  document.getElementById('checkbox-3').setAttribute('fill', box3Color);
   document.getElementById('checkbox-1-text').textContent = box1Text;
   document.getElementById('checkbox-2-text').textContent = box2Text;
+  document.getElementById('checkbox-3-text').textContent = box3Text;
   // Make box plots visible
   document.getElementById('boxplot-1').setAttribute('opacity', 1);
   document.getElementById('boxplot-2').setAttribute('opacity', 1);
@@ -427,7 +454,7 @@ function setResidueChart(modelID, chainID, residueID) {
   document.getElementById('bar-1-mainline').setAttribute('y2', bar1Y);
   document.getElementById('bar-2-mainline').setAttribute('y1', bar2Y);
   document.getElementById('bar-2-mainline').setAttribute('y2', bar2Y);
-  // Set bar label text and position 
+  // Set bar label text and position
   let bar1Label = document.getElementById('bar-1-label');
   let bar2Label = document.getElementById('bar-2-label');
   bar1Label.textContent = bAvg;

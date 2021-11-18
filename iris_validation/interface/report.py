@@ -145,15 +145,20 @@ def _chart_data_from_models(model_latest, model_previous):
                     continue
                 residue_id += 1
                 residue = chain_set[model_id].residues[residue_id]
-                metrics_continuous = [ residue.ramachandran_score, residue.rotamer_score, residue.avg_b_factor, residue.max_b_factor, residue.std_b_factor, residue.fit_score, residue.mainchain_fit_score, residue.sidechain_fit_score, residue.wrmsd, residue.fn_count ]
+                metrics_continuous = [  0 if residue.cmo_misalignment else 2, residue.ramachandran_score, residue.rotamer_score, residue.avg_b_factor, residue.max_b_factor, residue.std_b_factor, residue.fit_score, residue.mainchain_fit_score, residue.sidechain_fit_score, residue.smooth_covariance_score]
                 metrics_continuous = [ metrics_continuous[i] for i in REPORT_METRIC_IDS ]
                 metrics_discrete = [ None for _ in REPORT_METRIC_IDS ]
+                covariance_optimal_seq_register = None
                 if 'Ramachandran Score' in METRIC_NAMES:
                     rama_index = METRIC_NAMES.index('Ramachandran Score')
                     metrics_discrete[rama_index] = None if residue.ramachandran_score is None else 2 if residue.ramachandran_favored else 1 if residue.ramachandran_allowed else 0
                 if 'Rotamer Score' in METRIC_NAMES:
                     rota_index = METRIC_NAMES.index('Rotamer Score')
                     metrics_discrete[rota_index] = None if residue.rotamer_classification is None else 0 if residue.rotamer_classification in (0, 1) else residue.rotamer_classification-1
+                if 'CMO' in METRIC_NAMES:
+                    cmo_index = METRIC_NAMES.index('CMO')
+                    metrics_discrete[cmo_index] = 0 if residue.cmo_misalignment else 2
+                    covariance_optimal_seq_register = residue.covariance_suggested_register
                 marker = None
                 if residue.molprobity_data is not None:
                     metrics_discrete[rota_index] = None if residue.rotamer_classification is None else 0 if residue.molprobity_data['rota_outlier'] else 2
@@ -164,7 +169,8 @@ def _chart_data_from_models(model_latest, model_previous):
                                        'marker' : marker,
                                        'percentiles' : metrics_percentiles,
                                        'code' : residue.code,
-                                       'seqnum' : residue.sequence_number }
+                                       'seqnum' : residue.sequence_number,
+                                       'cov_seq_register' : covariance_optimal_seq_register}
                 chain_chart_data[pos_index][model_id] = residue_chart_data
         chart_data_by_cmr.append(chain_chart_data)
     return chart_data_by_cmr
@@ -199,13 +205,14 @@ def _radar_chart():
 def _grid_chart():
     settings = { 'box_1_label' : 'Ramachandran',
                  'box_2_label' : 'Rotamer',
+                 'box_3_label': 'CMO',
                  'bar_label' : 'Percentiles',
                  'bar_1_label' : 'Avg. B-factor',
                  'bar_2_label' : 'Sidechain Fit' }
     return grid(settings)
 
 
-def _generate_js_globals(chart_data):
+def _generate_js_globals(model_latest, model_previous, chart_data):
     num_chains = len(chart_data)
     num_models = len(chart_data[0][0])
     num_metrics = len(REPORT_METRIC_IDS)
@@ -227,12 +234,18 @@ def _generate_js_globals(chart_data):
     js_string += 'const gapDegrees = ' + str(round(0.3*180/pi, 2)) + ';\n'
     js_string += 'const chainLengths = ' + str(num_residues_by_chain) + ';\n'
 
+    if model_previous.contains_covariance_data or model_latest.contains_covariance_data:
+        js_string += 'const covDataAvail = true;\n'
+    else:
+        js_string += 'const covDataAvail = false;\n'
+
     mdim_js_strings = [ ]
     mdim_js_strings.append('const residueCodes = [ ')
     mdim_js_strings.append('const sequenceNumbers = [ ')
     mdim_js_strings.append('const absoluteMetrics = [ ')
     mdim_js_strings.append('const percentileMetrics = [ ')
     mdim_js_strings.append('const discreteMetrics = [ ')
+    mdim_js_strings.append('const cmoSequenceRegister = [ ')
     for model_id in range(num_models):
         for i in range(len(mdim_js_strings)):
             mdim_js_strings[i] += '[ '
@@ -270,6 +283,11 @@ def _generate_js_globals(chart_data):
                     mdim_js_strings[4] += 'null, '
                 else:
                     mdim_js_strings[4] += str([ None if x is None else round(x, 3) for x in residue['discrete'] ]).replace('None', 'null') + ', '
+                # CMO optimal sequence register values
+                if residue['cov_seq_register'] is None:
+                    mdim_js_strings[5] += 'null, '
+                else:
+                    mdim_js_strings[5] += '\'' + str(residue['cov_seq_register']) + '\'' + ', '
             for i in range(len(mdim_js_strings)):
                 mdim_js_strings[i] = mdim_js_strings[i][:-2] + ' ], '
         for i in range(len(mdim_js_strings)):
@@ -280,33 +298,10 @@ def _generate_js_globals(chart_data):
 
     return js_string
 
-def _covariance_data_table(model_id, model):
-    cov_data_rows = ''
-    COVARIANCE_FIX_TABLES = ''
-    if model_id == 1:
-        header = 'id="covariance_data_table_1"'
-    else:
-        header = 'id="covariance_data_table_0" style="display:none"'
-    for idx, outlier in enumerate(model.chains[0].covariance_outliers, 1):
-        cov_data_rows += COVARIANCE_DATA_ROW.format(idx, str(outlier),
-                                                    '{0:.2f}'.format(model.chains[0].wrmsd_profile[outlier]),
-                                                    '{0:.2f}'.format(model.chains[0].fn_profile[outlier]), model_id, idx)
-        if model.chains[0].covariance_fixes and any(model.chains[0].covariance_fixes[idx]):
-            cov_fix_rows = ''
-            for fix in model.chains[0].covariance_fixes[idx]:
-                cov_fix_rows += COVARIANCE_FIX_ROW.format(*fix)
-            COVARIANCE_FIX_TABLES += COVARIANCE_FIX_TABLE.format(model_id, idx, cov_fix_rows)
-        else:
-            COVARIANCE_FIX_TABLES += COVARIANCE_FIX_TABLE.format(model_id, idx, COVARIANCE_NO_FIX_ROW)
-
-    if not cov_data_rows:
-        cov_data_rows = COVARIANCE_DATA_NO_OUTLIER_ROW
-
-    return COVARIANCE_DATA_TABLE.format(header, cov_data_rows), COVARIANCE_FIX_TABLES
 
 def build_report(model_latest, model_previous, output_dir, mode=''):
     if model_previous.contains_covariance_data or model_latest.contains_covariance_data:
-        set_globals(REPORT_METRIC_IDS + (8, 9))
+        set_globals((0, ) + REPORT_METRIC_IDS + (9, ))
     else:
         set_globals(REPORT_METRIC_IDS)
 
@@ -330,24 +325,11 @@ def build_report(model_latest, model_previous, output_dir, mode=''):
     ip2_html = ''.join([ '              ' + concentric_chart + '\n' for concentric_chart in concentric_charts ])[:-1] # [:-1] to remove trailing newline
     ip3_html = '              ' + residue_chart
 
-    if model_previous.contains_covariance_data or model_latest.contains_covariance_data:
-        _previous_covariance_data_table = _covariance_data_table(0, model_previous)
-        _latest_covariance_data_table = _covariance_data_table(1, model_latest)
-        ip6_html = '<p id="no_cov_data_avail" style="display:none">No covariance data available.</p>' + _previous_covariance_data_table[0] + _latest_covariance_data_table[0]
-        ip7_html = _previous_covariance_data_table[1] + _latest_covariance_data_table[1]
-    else:
-        ip6_html = '<p id="no_cov_data_avail">No covariance data available.</p>'
-        ip7_html = ''
-
-
-
     report_html = HTML_TEMPLATE_PANEL if mode == 'panel' else HTML_TEMPLATE_PANEL_BC if mode == 'panel-bc' else HTML_TEMPLATE
     report_html = report_html \
                     .replace('INJECTION_POINT_1', ip1_html) \
                     .replace('INJECTION_POINT_2', ip2_html) \
                     .replace('INJECTION_POINT_3', ip3_html) \
-                    .replace('INJECTION_POINT_6', ip6_html) \
-                    .replace('INJECTION_POINT_7', ip7_html)
 
     if path.isdir(output_dir):
         rmtree(output_dir)
@@ -356,7 +338,7 @@ def build_report(model_latest, model_previous, output_dir, mode=''):
     mkdir(path.join(output_dir, 'css'))
 
     js_interaction = JS_MINIFIED
-    js_globals = _generate_js_globals(chart_data)
+    js_globals = _generate_js_globals(model_latest, model_previous, chart_data)
     # The browser used in CCP4-i2 doesn't support the "let" statement
     if mode == 'panel-bc':
         js_interaction = js_interaction.replace('let ', 'var ')

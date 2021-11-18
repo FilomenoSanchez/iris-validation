@@ -65,6 +65,7 @@ DEFAULT_SETTINGS_RADAR = { 'canvas_size' : (600, 500),
 
 DEFAULT_SETTINGS_GRID = { 'box_1_label' : '',
                           'box_2_label' : '',
+                          'box_3_label' : '',
                           'bar_label' : '',
                           'bar_1_label' : '',
                           'bar_2_label' : '',
@@ -608,8 +609,9 @@ def grid(settings={ }):
     bar_width = 15*sizes[0]
     tickbox_1_bounds = (margin, margin, settings['canvas_size'][0]*0.45, 15*sizes[0])
     tickbox_2_bounds = (settings['canvas_size'][0]*0.55, margin, settings['canvas_size'][0]-margin, 15*sizes[0])
-    divider_line_y = 22.5*sizes[0]
-    bar_charts_bounds = (margin+3*sizes[0], 28*sizes[0], settings['canvas_size'][0]-margin, settings['canvas_size'][1]-10*sizes[0])
+    tickbox_3_bounds = (margin, 22.5*sizes[0], settings['canvas_size'][0]-margin, 22.5*sizes[0]+15*sizes[0])
+    divider_line_y = 43*sizes[0]
+    bar_charts_bounds = (margin+3*sizes[0], 48*sizes[0], settings['canvas_size'][0]-margin, settings['canvas_size'][1]-sizes[0])
     bar_1_x = bar_charts_bounds[0] + (bar_charts_bounds[2]-bar_charts_bounds[0])*1/4
     bar_2_x = bar_charts_bounds[0] + (bar_charts_bounds[2]-bar_charts_bounds[0])*3/4
 
@@ -688,6 +690,36 @@ def grid(settings={ }):
                       fill_opacity=1,
                       text_anchor='middle',
                       alignment_baseline='central'))
+
+    dwg.add(dwg.polygon(points=[(tickbox_3_bounds[0], tickbox_3_bounds[1]),
+                                (tickbox_3_bounds[2], tickbox_3_bounds[1]),
+                                (tickbox_3_bounds[2], tickbox_3_bounds[3]),
+                                (tickbox_3_bounds[0], tickbox_3_bounds[3])],
+                        fill=COLORS['VL_GREY'],
+                        fill_opacity=0.8,
+                        stroke=COLORS['BLACK'],
+                        stroke_width=2,
+                        stroke_opacity=1,
+                        id='checkbox-3'))
+    dwg.add(dwg.text('',
+                     insert=(
+                     (tickbox_3_bounds[0] + tickbox_3_bounds[2]) / 2, (tickbox_3_bounds[1] + tickbox_3_bounds[3]) / 2),
+                     font_size=2 * sizes[1],
+                     font_family='Arial',
+                     font_weight='bold',
+                     fill=COLORS['BLACK'],
+                     fill_opacity=1,
+                     text_anchor='middle',
+                     alignment_baseline='central',
+                     id='checkbox-3-text'))
+    dwg.add(dwg.text(settings['box_3_label'],
+                     insert=((tickbox_3_bounds[0] + tickbox_3_bounds[2]) / 2, tickbox_3_bounds[3] + 25),
+                     font_size=1.8 * sizes[1],
+                     font_family='Arial',
+                     fill=COLORS['BLACK'],
+                     fill_opacity=1,
+                     text_anchor='middle',
+                     alignment_baseline='central'))
 
     # Divider line
     dwg.add(dwg.line((margin, divider_line_y),

@@ -33,7 +33,7 @@ def _load_data():
                 for metric_name, metric_value in zip(metric_names, metric_values):
                     PERCENTILE_DATA[metric_name][bin_name][percentile] = metric_value
     for metric_name in METRIC_NAMES:
-        if metric_name not in PERCENTILE_DATA.keys() and metric_name not in ('wRMSD', 'False Negative Count'):
+        if metric_name not in PERCENTILE_DATA.keys() and metric_name not in ('Covariance Score', 'CMO'):
             raise Exception('no percentile data for metric: ' + metric_name)
 
     RESOLUTION_BINS = { }
@@ -62,7 +62,7 @@ def _get_bin_name(resolution):
 def get_percentile(metric_id, metric_value, resolution=None, normalise_polarity=False):
     metric_name = METRIC_NAMES[metric_id]
 
-    if metric_name in ('wRMSD', 'False Negative Count'):
+    if metric_name in ('Covariance Score', 'CMO'):
         return None
 
     if PERCENTILE_DATA is None:
