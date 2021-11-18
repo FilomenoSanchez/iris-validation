@@ -28,6 +28,7 @@ if __name__ == '__main__':
     distpred_path = os.path.join(INPUT_DIR, '{}.npz'.format(pdb_id))
     distpred_format = 'rosettanpz'
     map_align_exe = 'map_align'
+    dssp_exe = 'mkdssp'
 
     all_files_present = True
     for path in (latest_model_path, latest_reflections_path, sequence_path, distpred_path):
@@ -47,4 +48,4 @@ if __name__ == '__main__':
                     distance_prediction_path=distpred_path,
                     distance_prediction_format=distpred_format,
                     output_dir=OUTPUT_DIR_PREFIX.format(pdb_id),
-                    mode='', map_align_exe=map_align_exe)
+                    mode='', map_align_exe=map_align_exe, dssp_exe=dssp_exe)
