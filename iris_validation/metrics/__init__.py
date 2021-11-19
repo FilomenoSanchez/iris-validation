@@ -108,7 +108,7 @@ class MetricsModel(object):
         model = conkit.io.read(f_model, 'pdb' if '.pdb' in f_model else 'mmcif').top
         p = PDBParser()
         structure = p.get_structure('structure', f_model)[0]
-        # This shuold use acc_array='Wilke', but it is not available on python2 (needs biopython version 1.79)
+        # This should use acc_array='Wilke', but it is not available on python2 (needs biopython version 1.79)
         dssp = DSSP(structure, f_model, dssp=dssp_exe)
 
         figure = conkit.plot.ModelValidationFigure(model, prediction, sequence, dssp, map_align_exe=map_align_exe)
