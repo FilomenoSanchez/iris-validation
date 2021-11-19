@@ -108,24 +108,16 @@ class MetricsModel(object):
         model = conkit.io.read(f_model, 'pdb' if '.pdb' in f_model else 'mmcif').top
         p = PDBParser()
         structure = p.get_structure('structure', f_model)[0]
-        #This shuold use acc_array='Wilke', but it is not available on python2
+        # This shuold use acc_array='Wilke', but it is not available on python2 (needs biopython version 1.79)
         dssp = DSSP(structure, f_model, dssp=dssp_exe)
 
         figure = conkit.plot.ModelValidationFigure(model, prediction, sequence, dssp, map_align_exe=map_align_exe)
         alignment_dict = {}
         for resnum in figure.alignment.keys():
             residue_code = utils.ONE_LETTER_CODES[sequence.seq[figure.alignment[resnum] - 1]]
-            alignment_dict[resnum] = '*** {} ({}) ***'.format(residue_code, figure.alignment[resnum])
+            alignment_dict[resnum] = '*** {} ({}) ***'.format(figure.alignment[resnum], residue_code)
         self.chains[0].set_covariance_data(figure.sorted_scores, figure.smooth_scores, alignment_dict)
         self.contains_covariance_data = True
-
-    @staticmethod
-    def _write_mapalign_cmap(fname, cmap):
-        with open(fname, 'w') as fhandle:
-            fhandle.write("LEN {}\n".format(cmap.highest_residue_number))
-            line_template = "CON {} {} {:.6f}\n"
-            for contact in cmap:
-                fhandle.write(line_template.format(contact.res1_seq, contact.res2_seq, contact.raw_score))
 
 
 class MetricsChain(object):
@@ -160,7 +152,7 @@ class MetricsChain(object):
                 residue.covariance_suggested_register = alignment_dict[residue.sequence_number]
                 residue.cmo_misalignment = True
             else:
-                residue.covariance_suggested_register = '{} ({})'.format(residue.code, residue.sequence_number)
+                residue.covariance_suggested_register = '{} ({})'.format(residue.sequence_number, residue.code)
             residue.covariance_score = covariance_scores[residue.index_in_chain]
             residue.smooth_covariance_score = smooth_covariance_scores[residue.index_in_chain]
 
