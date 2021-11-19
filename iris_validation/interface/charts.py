@@ -609,7 +609,8 @@ def grid(settings={ }):
     bar_width = 15*sizes[0]
     tickbox_1_bounds = (margin, margin, settings['canvas_size'][0]*0.45, 15*sizes[0])
     tickbox_2_bounds = (settings['canvas_size'][0]*0.55, margin, settings['canvas_size'][0]-margin, 15*sizes[0])
-    tickbox_3_bounds = (margin, 22.5*sizes[0], settings['canvas_size'][0]-margin, 22.5*sizes[0]+15*sizes[0])
+    tickbox_3_bounds = (margin, 22.5*sizes[0], settings['canvas_size'][0]*0.45, 22.5*sizes[0]+15*sizes[0])
+    tickbox_4_bounds = (settings['canvas_size'][0]*0.55, 22.5*sizes[0], settings['canvas_size'][0]-margin, 22.5*sizes[0]+15*sizes[0])
     divider_line_y = 43*sizes[0]
     bar_charts_bounds = (margin+3*sizes[0], 48*sizes[0], settings['canvas_size'][0]-margin, settings['canvas_size'][1]-sizes[0])
     bar_1_x = bar_charts_bounds[0] + (bar_charts_bounds[2]-bar_charts_bounds[0])*1/4
@@ -714,6 +715,35 @@ def grid(settings={ }):
                      id='checkbox-3-text'))
     dwg.add(dwg.text(settings['box_3_label'],
                      insert=((tickbox_3_bounds[0] + tickbox_3_bounds[2]) / 2, tickbox_3_bounds[3] + 25),
+                     font_size=1.8 * sizes[1],
+                     font_family='Arial',
+                     fill=COLORS['BLACK'],
+                     fill_opacity=1,
+                     text_anchor='middle',
+                     alignment_baseline='central'))
+    dwg.add(dwg.polygon(points=[(tickbox_4_bounds[0], tickbox_4_bounds[1]),
+                                (tickbox_4_bounds[2], tickbox_4_bounds[1]),
+                                (tickbox_4_bounds[2], tickbox_4_bounds[3]),
+                                (tickbox_4_bounds[0], tickbox_4_bounds[3])],
+                        fill=COLORS['VL_GREY'],
+                        fill_opacity=0.8,
+                        stroke=COLORS['BLACK'],
+                        stroke_width=2,
+                        stroke_opacity=1,
+                        id='checkbox-4'))
+    dwg.add(dwg.text('',
+                     insert=(
+                     (tickbox_4_bounds[0] + tickbox_4_bounds[2]) / 2, (tickbox_4_bounds[1] + tickbox_4_bounds[3]) / 2),
+                     font_size=2 * sizes[1],
+                     font_family='Arial',
+                     font_weight='bold',
+                     fill=COLORS['BLACK'],
+                     fill_opacity=1,
+                     text_anchor='middle',
+                     alignment_baseline='central',
+                     id='checkbox-4-text'))
+    dwg.add(dwg.text(settings['box_4_label'],
+                     insert=((tickbox_4_bounds[0] + tickbox_4_bounds[2]) / 2, tickbox_4_bounds[3] + 25),
                      font_size=1.8 * sizes[1],
                      font_family='Arial',
                      fill=COLORS['BLACK'],

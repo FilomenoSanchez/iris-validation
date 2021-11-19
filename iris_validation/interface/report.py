@@ -10,8 +10,7 @@ from iris_validation.metrics import get_percentile
 from iris_validation.interface.charts import concentric, radar, grid
 from iris_validation.utils import code_three_to_one, needleman_wunsch
 from iris_validation import METRIC_NAMES, METRIC_POLARITIES, METRIC_SHORTNAMES, METRIC_DISPLAY_TYPES, \
-    COVARIANCE_DATA_ROW, COVARIANCE_DATA_NO_OUTLIER_ROW, COVARIANCE_FIX_TABLE, COVARIANCE_FIX_ROW, \
-    COVARIANCE_NO_FIX_ROW, REPORT_METRIC_IDS, REPORT_RESIDUE_VIEW, COVARIANCE_DATA_TABLE
+     REPORT_METRIC_IDS, REPORT_RESIDUE_VIEW
 
 
 def set_globals(metrics_ids):
@@ -145,7 +144,7 @@ def _chart_data_from_models(model_latest, model_previous):
                     continue
                 residue_id += 1
                 residue = chain_set[model_id].residues[residue_id]
-                metrics_continuous = [  0 if residue.cmo_misalignment else 2, residue.ramachandran_score, residue.rotamer_score, residue.avg_b_factor, residue.max_b_factor, residue.std_b_factor, residue.fit_score, residue.mainchain_fit_score, residue.sidechain_fit_score, residue.smooth_covariance_score]
+                metrics_continuous = [ residue.ramachandran_score, residue.rotamer_score, 0 if residue.cmo_misalignment else 2, residue.smooth_covariance_score, residue.avg_b_factor, residue.max_b_factor, residue.std_b_factor, residue.fit_score, residue.mainchain_fit_score, residue.sidechain_fit_score]
                 metrics_continuous = [ metrics_continuous[i] for i in REPORT_METRIC_IDS ]
                 metrics_discrete = [ None for _ in REPORT_METRIC_IDS ]
                 covariance_optimal_seq_register = None
@@ -163,7 +162,7 @@ def _chart_data_from_models(model_latest, model_previous):
                 if residue.molprobity_data is not None:
                     metrics_discrete[rota_index] = None if residue.rotamer_classification is None else 0 if residue.molprobity_data['rota_outlier'] else 2
                     marker = residue.molprobity_data['does_clash']
-                metrics_percentiles = [ get_percentile(metric_id, value, model.resolution, normalise_polarity=True) for metric_id, value in zip(REPORT_METRIC_IDS, metrics_continuous) ]
+                metrics_percentiles = [ get_percentile(metric_id, value, model.resolution, normalise_polarity=True) for metric_id, value in zip(REPORT_METRIC_IDS, metrics_continuous) if metric_id not in (2, 3)]
                 residue_chart_data = { 'continuous' : metrics_continuous,
                                        'discrete' : metrics_discrete,
                                        'marker' : marker,
@@ -206,6 +205,7 @@ def _grid_chart():
     settings = { 'box_1_label' : 'Ramachandran',
                  'box_2_label' : 'Rotamer',
                  'box_3_label': 'CMO',
+                 'box_4_label': 'Cov. Score',
                  'bar_label' : 'Percentiles',
                  'bar_1_label' : 'Avg. B-factor',
                  'bar_2_label' : 'Sidechain Fit' }
@@ -301,7 +301,7 @@ def _generate_js_globals(model_latest, model_previous, chart_data):
 
 def build_report(model_latest, model_previous, output_dir, mode=''):
     if model_previous.contains_covariance_data or model_latest.contains_covariance_data:
-        set_globals((0, ) + REPORT_METRIC_IDS + (9, ))
+        set_globals((0, 1, 2, 3, 4, 5, 8, 9))
     else:
         set_globals(REPORT_METRIC_IDS)
 

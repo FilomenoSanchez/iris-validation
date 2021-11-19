@@ -89,7 +89,6 @@ function toggleModel() {
   setResidueChart(selectedModel, selectedChain, selectedResidue);
   setResidueChartRanges();
   // Only show current model covariance data
-  setCovData(selectedModel, selectedChain)
 };
 
 
@@ -108,7 +107,6 @@ function setChain(chainID) {
   setResidueChart(selectedModel, selectedChain, selectedResidue);
   setSelector(selectedChain, selectedResidue);
   setIrisChart(selectedChain);
-  setCovData(selectedModel, selectedChain)
 };
 
 
@@ -379,22 +377,21 @@ function setResidueChart(modelID, chainID, residueID) {
   let box1Color = '';
   let box2Color = '';
   let box3Color = '';
+  let box4Color = '';
   let box1Text = '';
   let box2Text = '';
   let box3Text = '';
+  let box4Text = '';
 
   if (covDataAvail == true) {
-    ramaID = 1;
-    rotaID = 2;
-    cmo = discreteMetrics[modelID][chainID][residueID][0];
+    covSco = absoluteMetrics[modelID][chainID][residueID][3];
+    cmo = discreteMetrics[modelID][chainID][residueID][2];
     cmoSeqRegister = cmoSequenceRegister[modelID][chainID][residueID];
   } else {
-    ramaID = 0;
-    rotaID = 1;
+    covSco = null;
     cmo = null;
     cmoSeqRegister = null;
   };
-
   if (cmo === null) {
     box3Color = COLORS['VL_GREY'];
     box3Text = 'N/A';
@@ -405,7 +402,17 @@ function setResidueChart(modelID, chainID, residueID) {
     box3Color = COLORS['BAR_GREEN'];
     box3Text = cmoSeqRegister;
   };
-  let rama = discreteMetrics[modelID][chainID][residueID][ramaID];
+  if (covSco === null) {
+    box4Color = COLORS['VL_GREY'];
+    box4Text = 'N/A';
+  } else if (Number(covSco) > 0.5) {
+    box4Color = COLORS['BAR_RED'];
+    box4Text = (Number(covSco) * -1).toString();
+  } else {
+    box4Color = COLORS['BAR_GREEN'];
+    box4Text = (Number(covSco) * -1).toString();
+  };
+  let rama = discreteMetrics[modelID][chainID][residueID][0];
   if (rama === null) {
     box1Color = COLORS['VL_GREY'];
     box1Text = 'N/A';
@@ -419,7 +426,7 @@ function setResidueChart(modelID, chainID, residueID) {
     box1Color = COLORS['BAR_GREEN'];
     box1Text = 'Favoured';
   };
-  let rota = discreteMetrics[modelID][chainID][residueID][rotaID];
+  let rota = discreteMetrics[modelID][chainID][residueID][1];
   if (rota === null) {
     box2Color = COLORS['VL_GREY'];
     box2Text = 'N/A';
@@ -437,9 +444,12 @@ function setResidueChart(modelID, chainID, residueID) {
   document.getElementById('checkbox-1').setAttribute('fill', box1Color);
   document.getElementById('checkbox-2').setAttribute('fill', box2Color);
   document.getElementById('checkbox-3').setAttribute('fill', box3Color);
+  document.getElementById('checkbox-4').setAttribute('fill', box4Color);
   document.getElementById('checkbox-1-text').textContent = box1Text;
   document.getElementById('checkbox-2-text').textContent = box2Text;
   document.getElementById('checkbox-3-text').textContent = box3Text;
+  document.getElementById('checkbox-4-text').textContent = box4Text;
+
   // Make box plots visible
   document.getElementById('boxplot-1').setAttribute('opacity', 1);
   document.getElementById('boxplot-2').setAttribute('opacity', 1);
@@ -531,41 +541,6 @@ function getResidueChartRanges() {
     //let fitMax = Math.min(100, fitMean+2*fitStd);
     modelMinMax.push([ [bMean, bLow, bHigh, bMin, bMax], [fitMean, fitLow, fitHigh, fitMin, fitMax] ]);
   };
-};
-
-function showCovFixTable(button_id) {
-  // Hide all table
-    var tablesToHide = document.querySelectorAll('[id^="covariance_fix_table_"]');
-    for(var i = 0; i < tablesToHide.length; i++){
-        if (tablesToHide[i].id === 'covariance_fix_table_'+button_id)             tablesToHide[i].style.display = "";
-        else tablesToHide[i].style.display = "none";
-    }
-};
-
-
-function showCovDataTable(model_id) {
-  // Hide all table
-    var tablesToHide = document.querySelectorAll('[id^="covariance_data_table_"]');
-    for(var i = 0; i < tablesToHide.length; i++){
-        if (tablesToHide[i].id === 'covariance_data_table_'+model_id)             tablesToHide[i].style.display = "";
-        else tablesToHide[i].style.display = "none";
-    }
-};
-
-function setCovData(model_id, chain_id) {
-  var noCovDataAvail = document.getElementById('no_cov_data_avail');
-  showCovFixTable('XXXXXX');
-  // If there is covariance data and is the first chain, show table
-  if (chain_id === 0){
-    showCovDataTable(model_id);
-    noCovDataAvail.style.display = "none";
-  }
-  // Otherwise hide everything
-  else {
-    showCovDataTable('XXXXXX');
-    noCovDataAvail.style.display = "";
-  }
-
 };
 
 function setResidueChartRanges() {
