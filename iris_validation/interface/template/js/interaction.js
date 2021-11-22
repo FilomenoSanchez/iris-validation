@@ -405,7 +405,7 @@ function setResidueChart(modelID, chainID, residueID) {
   if (covSco === null) {
     box4Color = COLORS['VL_GREY'];
     box4Text = 'N/A';
-  } else if (Number(covSco) > 0.5) {
+  } else if (Number(covSco) < -0.5) {
     box4Color = COLORS['BAR_RED'];
     box4Text = (Number(covSco) * -1).toString();
   } else {
